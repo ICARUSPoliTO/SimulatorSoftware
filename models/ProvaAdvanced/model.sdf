@@ -1,0 +1,250 @@
+<?xml version="1.0"?>
+<sdf version='1.10'>
+  <model name='plane'>
+	<link name="body">
+		<pose>0 0 0 0 0 0</pose>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>1.5</mass>
+        <inertia>
+          <ixx>0.197563</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.1458929</iyy>
+          <iyz>0</iyz>
+          <izz>0.1477</izz>
+        </inertia>
+      </inertial>
+      <collision name='base_link_collision'>
+        <pose>0 0 0 0 0 0</pose>
+        <geometry>
+          <box>
+            <size>3 1.5 1</size>
+          </box>
+        </geometry>
+      </collision>
+      
+      <visual name="main_vis">
+      	<pose>0 0 0 0 0 0</pose>
+      	<geometry>
+      		<box>	
+      			<size>3 0.5 1</size>
+      		</box>
+      	</geometry>      	
+      </visual>
+	</link>
+	
+	<link name="prop">
+		<pose degrees="true">1.5 0 0 0 0 0</pose>
+		<inertial>
+			<mass>0.001</mass>
+			<inertia>
+				<ixx>2e-06</ixx>
+		      	<ixy>0</ixy>
+		      	<ixz>0</ixz>
+		      	<iyy>0.00033</iyy>
+		      	<iyz>0</iyz>
+		      	<izz>0.00033</izz>
+			</inertia>
+		</inertial>
+		
+		<collision name='prop_collision'>
+        	<pose degrees="true">0 0 0 0 0 0</pose>
+        	<geometry>
+          		<!--
+          		<cylinder>
+					<radius>0.8</radius>
+					<length>1e-6</length>
+				</cylinder>-->
+				<box>
+					<size>0.01 0.02 0.02</size>
+				</box>
+        	</geometry>
+      	</collision>
+		
+		<visual name="prop_vis">
+			<pose degrees="true">0 0 0 0 0 0</pose>
+			<geometry>
+				<!--
+				<cylinder>
+					<radius>0.8</radius>
+					<length>1e-6</length>
+				</cylinder>
+				-->
+				<box>
+					<size>0.1 2 0.2</size>
+				</box>
+			</geometry>
+		</visual>
+	</link>
+	
+	<joint name="prop_joint" type="revolute">
+		<child>prop</child>
+		<parent>body</parent>
+		<pose>3 0 0   0 0 0</pose>
+		<axis>
+		    <xyz>1 0 0</xyz>
+		    <limit>
+		      	<lower>-1e+16</lower>
+		      	<upper>1e+16</upper>
+		    </limit>
+      	</axis>
+	</joint>
+	
+	<!-- imu for ardupilot plugin -->
+	<link name='imu_link'>
+      <inertial>
+        <pose>0 0 0 0 0 0</pose>
+        <mass>0.15</mass>
+        <inertia>
+          <ixx>0.00002</ixx>
+          <ixy>0</ixy>
+          <ixz>0</ixz>
+          <iyy>0.00002</iyy>
+          <iyz>0</iyz>
+          <izz>0.00002</izz>
+        </inertia>
+      </inertial>
+      <sensor name="imu_sensor" type="imu">
+        <pose degrees="true">0 0 0 180 0 -90</pose>
+        <always_on>1</always_on>
+        <update_rate>1000.0</update_rate>
+      </sensor>
+    </link>
+    <joint name='imu_joint' type='revolute'>
+      <child>imu_link</child>
+      <parent>body</parent>
+      <axis>
+        <xyz>0 0 1</xyz>
+        <limit>
+          <lower>0</lower>
+          <upper>0</upper>
+          <effort>0</effort>
+          <velocity>0</velocity>
+        </limit>
+        <dynamics>
+          <damping>1.0</damping>
+        </dynamics>
+      </axis>
+    </joint>
+	
+	
+	<!-- PLUGINS -->
+	
+	<plugin filename="gz-sim-joint-state-publisher-system"
+      name="gz::sim::systems::JointStatePublisher">
+    </plugin>
+	
+	<plugin filename="gz-sim-apply-joint-force-system"
+      name="gz::sim::systems::ApplyJointForce">
+      <joint_name>prop_joint</joint_name>
+    </plugin>
+	
+	<plugin name="ArduPilotPlugin" filename="ArduPilotPlugin">
+      <!-- Port settings -->
+      <fdm_addr>127.0.0.1</fdm_addr>
+      <fdm_port_in>9002</fdm_port_in>
+      <connectionTimeoutMaxCount>5</connectionTimeoutMaxCount>
+      <lock_step>1</lock_step>
+
+      <!-- Frame conventions
+        modelXYZToAirplaneXForwardZDown:
+          - transforms body frame from orientation in Gazebo to NED
+
+        gazeboXYZToNED
+          - transforms world from Gazebo convention xyz = N -E -D
+            to ArduPilot convention xyz = NED
+
+        Zephyr is oriented x-left, y-back, z-up
+      -->
+      <modelXYZToAirplaneXForwardZDown degrees="true">0 0 0 180 0 -90</modelXYZToAirplaneXForwardZDown>
+      <gazeboXYZToNED degrees="true">0 0 0 180 0 90</gazeboXYZToNED>
+
+      <!-- Sensors -->
+      <imuName>imu_link::imu_sensor</imuName>
+
+      <!--
+          incoming control command [0, 1]
+          so offset it by 0 to get [0, 1]
+          and divide max target by 1.
+          offset = 0
+          multiplier = 838 max rpm / 1 = 838
+        -->
+
+      <!--
+          SERVO3_FUNCTION   70 (Throttle)
+          SERVO3_MAX        1900
+          SERVO3_MIN        1100
+          SERVO3_REVERSED   0
+          SERVO3_TRIM       1100
+       -->
+      <control channel="2">
+        <jointName>prop_joint</jointName>
+        <useForce>1</useForce>
+        <multiplier>838</multiplier>
+        <offset>0</offset>
+        <servo_min>1100</servo_min>
+        <servo_max>1900</servo_max>
+        <type>VELOCITY</type>
+        <p_gain>0.20</p_gain>
+        <i_gain>0</i_gain>
+        <d_gain>0</d_gain>
+        <i_max>0</i_max>
+        <i_min>0</i_min>
+        <cmd_max>2.5</cmd_max>
+        <cmd_min>0.0</cmd_min>
+      </control>
+    </plugin>
+	
+	<plugin name="gz::sim::v7::systems::AdvancedLiftDrag" filename="libgz-sim7-advanced-lift-drag-system.so.7">
+      <a0>0.0</a0>
+      <CL0>0.981</CL0>
+      <AR>7.34</AR>
+      <eff>0.97</eff>
+      <CLa>6.2</CLa>
+      <CD0>0.029</CD0>
+      <Cem0>0.075</Cem0>
+      <Cema>-0.463966</Cema>
+      <CYb>-0.258244</CYb>
+      <Cellb>-0.039250</Cellb>
+      <Cenb>0.100826</Cenb>
+      <CDp>0.0</CDp>
+      <CYp>0.065861</CYp>
+      <CLp>0.0</CLp>
+      <Cellp>-0.487407</Cellp>
+      <Cemp>0.0</Cemp>
+      <Cenp>-0.040416</Cenp>
+      <CDq>0.055166</CDq>
+      <CYq>0.0</CYq>
+      <CLq>7.971792</CLq>
+      <Cellq>0.0</Cellq>
+      <Cemq>-12.140140</Cemq>
+      <Cenq>0.0</Cenq>
+      <CDr>0.0</CDr>
+      <CYr>0.230299</CYr>
+      <CLr>0.0</CLr>
+      <Cellr>0.078165</Cellr>
+      <Cemr>0.0</Cemr>
+      <Cenr>-0.089947</Cenr>
+      <alpha_stall>0.3391428111</alpha_stall>
+      <CLa_stall>-3.85</CLa_stall>
+      <CDa_stall>-0.9233984055</CDa_stall>
+      <Cema_stall>0</Cema_stall>
+      <ref_pt>-0.12 0.0 0.0</ref_pt>
+      <area>0.34</area>
+      <mac>0.22</mac>
+      <air_density>1.2041</air_density>
+      <forward>1 0 0</forward>
+      <upward>0 0 1</upward>
+      <link_name>body</link_name>
+      <topic_name>lift_force/left_elevon</topic_name>
+      
+    </plugin>
+    
+    
+    <plugin filename="ThrustSystem" name="thrust_system::ThrustSystem">
+    	<propeller_joint>prop_joint</propeller_joint>
+    	<body_link>body</body_link>
+    </plugin>
+  </model>
+</sdf>
