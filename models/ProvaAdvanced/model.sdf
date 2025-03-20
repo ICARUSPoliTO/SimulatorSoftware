@@ -245,6 +245,7 @@
     <plugin filename="ThrustSystem" name="thrust_system::ThrustSystem">
     	<propeller_joint>prop_joint</propeller_joint>
     	<body_link>body</body_link>
+    	<prop_diameter>52.07</prop_diameter>
     </plugin>
   </model>
 </sdf>
