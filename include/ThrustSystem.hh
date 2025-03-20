@@ -13,11 +13,12 @@ namespace thrust_system{
 
 
 	/*
-	Esempio di utilizzo (force e period sono temporanei per debug): 
+	Format in the sdf: 
 	
 		<plugin filename="ThrustSystem" name="thrust_system::ThrustSystem">
     		<propeller_link> prop </propeller_link>
 			<body_link> body </body_link>
+			<prop_diameter> diameter [cm] </prop_diameter>
 		</plugin>
 
 	*/
@@ -50,6 +51,8 @@ namespace thrust_system{
     			gz::sim::EntityComponentManager &_ecm,
     			gz::sim::EventManager &_eventMgr) override;   
         private:
+        	// Computes the K_t of the propeller according to the manufacturer's table, it uses linear interpolation between points and assumes RPM=2000
+        	double interpolate_Kt(double adv_ratio);
         	
         	class DataHolder{
 				public:
@@ -73,6 +76,9 @@ namespace thrust_system{
 					
 					// Plane's world pose
 					gz::math::Pose3<double> pose;
+					
+					//Propeller's diamaeter
+					double prop_diam;
 			};
 					
         	// Holds relevant data, check .cc for implementation
